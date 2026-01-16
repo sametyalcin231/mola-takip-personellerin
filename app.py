@@ -136,9 +136,10 @@ if st.session_state.get("role") == "Personel":
             st.info("Henüz log kaydınız yok.")
 
         # Bildirim kontrol
-        notif = pd.read_sql("SELECT * FROM notifications WHERE username=?", conn, params=(st.session_state.user,))
+        notif = pd.read_sql("SELECT * FROM notifications WHERE username=? ORDER BY created DESC", conn, params=(st.session_state.user,))
         if not notif.empty:
-            st.warning(f"📢 Yönetici çağırıyor: {notif.iloc[-1]['message']}")
+            for _, row in notif.iterrows():
+                st.warning(f"📢 Yönetici çağırıyor: {row['message']} (tarih: {row['created']})")
 
 # --- Yönetici Paneli ---
 elif st.session_state.get("role") == "Yönetici":
@@ -182,7 +183,4 @@ elif st.session_state.get("role") == "Yönetici":
                     conn.commit()
                     st.success(f"{row['username']} onaylandı ✅")
         else:
-            st.success("Onay bekleyen kullanıcı yok.")
-
-        df_users = pd.read_sql("SELECT * FROM users", conn)
-       
+            st.success("Onay bekleyen kullanıcı yok
