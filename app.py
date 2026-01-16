@@ -184,3 +184,22 @@ elif st.session_state.get("role") == "Yönetici":
                     st.success(f"{row['username']} onaylandı ✅")
         else:
             st.success("Onay bekleyen kullanıcı yok
+                               df_users = pd.read_sql("SELECT * FROM users", conn)
+        st.subheader("👥 Kullanıcı Tablosu")
+        st.dataframe(df_users, use_container_width=True)
+
+    with tab4:
+        st.subheader("📢 Bildirim Gönder")
+        # Admin için dropdown ile kullanıcı seçimi
+        users_list = pd.read_sql("SELECT username FROM users WHERE role='Personel'", conn)["username"].tolist()
+        target_user = st.selectbox("Kime bildirim göndereceksiniz?", users_list)
+        message = st.text_area("Mesaj")
+        if st.button("Gönder"):
+            if target_user and message:
+                c.execute("INSERT INTO notifications (username, message, created) VALUES (?, ?, ?)",
+                          (target_user, message, datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")))
+                conn.commit()
+                st.success(f"{target_user} kullanıcısına bildirim gönderildi ✅")
+            else:
+                st.error("Kullanıcı adı ve mesaj boş olamaz ❌")
+
