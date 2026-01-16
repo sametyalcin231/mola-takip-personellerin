@@ -183,7 +183,7 @@ elif st.session_state.get("role") == "Yönetici":
                     conn.commit()
                     st.success(f"{row['username']} onaylandı ✅")
         else:
-            st.success("Onay bekleyen kullanıcı yok
+            st.success("Onay bekleyen kullanıcı yok")
                                df_users = pd.read_sql("SELECT * FROM users", conn)
         st.subheader("👥 Kullanıcı Tablosu")
         st.dataframe(df_users, use_container_width=True)
@@ -202,4 +202,5 @@ elif st.session_state.get("role") == "Yönetici":
                 st.success(f"{target_user} kullanıcısına bildirim gönderildi ✅")
             else:
                 st.error("Kullanıcı adı ve mesaj boş olamaz ❌")
+
 
