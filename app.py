@@ -10,7 +10,7 @@ tz = pytz.timezone("Europe/Istanbul")
 conn = sqlite3.connect("personel.db", check_same_thread=False)
 c = conn.cursor()
 
-# Tabloları sadece yoksa oluştur
+# Tablolar
 c.execute("""CREATE TABLE IF NOT EXISTS users (
     username TEXT PRIMARY KEY,
     password TEXT,
@@ -24,6 +24,11 @@ c.execute("""CREATE TABLE IF NOT EXISTS logs (
     cikis TEXT,
     sure INTEGER
 )""")
+c.execute("""CREATE TABLE IF NOT EXISTS notifications (
+    username TEXT,
+    message TEXT,
+    created TEXT
+)""")
 conn.commit()
 
 # Admin hesabı
@@ -31,58 +36,58 @@ c.execute("INSERT OR IGNORE INTO users (username, password, role, approved) VALU
           ("admin", "1234", "Yönetici", 1))
 conn.commit()
 
-# Sidebar
-st.sidebar.title("🔐 Kullanıcı Paneli")
-st.sidebar.subheader("Giriş Yap")
-username = st.sidebar.text_input("Kullanıcı Adı")
-password = st.sidebar.text_input("Şifre", type="password")
-login_btn = st.sidebar.button("Giriş")
+# --- Kurumsal Tema ve Logo ---
+st.set_page_config(page_title="Personel Yönetim Sistemi", page_icon="🏢", layout="wide")
+st.markdown("<h1 style='text-align:center; color:#0A3D62;'>🏢 Personel Yönetim Sistemi</h1>", unsafe_allow_html=True)
+st.markdown("---")
 
-st.sidebar.subheader("Kayıt Ol")
-new_user = st.sidebar.text_input("Yeni Kullanıcı Adı")
-new_pass = st.sidebar.text_input("Yeni Şifre", type="password")
-if st.sidebar.button("Kayıt Ol"):
-    if new_user and new_pass:
-        try:
-            c.execute("INSERT INTO users (username, password, role, approved) VALUES (?, ?, ?, ?)",
-                      (new_user, new_pass, "Personel", 0))
-            conn.commit()
-            st.sidebar.success("Kullanıcı oluşturuldu ✅ (Admin onayı bekleniyor)")
-        except sqlite3.IntegrityError:
-            st.sidebar.error("Bu kullanıcı adı zaten mevcut ❌")
-    else:
-        st.sidebar.error("Kullanıcı adı ve şifre boş olamaz ❌")
-
-if st.sidebar.button("Çıkış Yap"):
-    st.session_state.clear()
-    st.sidebar.success("Çıkış yapıldı ✅")
-
+# --- Giriş/Kayıt Paneli ---
 if "role" not in st.session_state:
     st.session_state.role = None
 if "login_time" not in st.session_state:
     st.session_state.login_time = None
 
-if login_btn:
-    user = c.execute("SELECT * FROM users WHERE username=? AND password=?", (username, password)).fetchone()
-    if user:
-        if user[3] == 1:
-            st.session_state.role = user[2]
-            st.session_state.user = user[0]
-            st.session_state.login_time = datetime.now(tz)
-            st.sidebar.success("Giriş başarılı ✅")
+tab_login, tab_register = st.tabs(["🔑 Giriş Yap", "📝 Kayıt Ol"])
+
+with tab_login:
+    username = st.text_input("Kullanıcı Adı")
+    password = st.text_input("Şifre", type="password")
+    if st.button("Giriş"):
+        user = c.execute("SELECT * FROM users WHERE username=? AND password=?", (username, password)).fetchone()
+        if user:
+            if user[3] == 1:
+                st.session_state.role = user[2]
+                st.session_state.user = user[0]
+                st.session_state.login_time = datetime.now(tz)
+                st.success("Giriş başarılı ✅")
+            else:
+                st.error("Hesabınız henüz admin tarafından onaylanmadı ❌")
         else:
-            st.sidebar.error("Hesabınız henüz admin tarafından onaylanmadı ❌")
-    else:
-        st.sidebar.error("Hatalı kullanıcı adı veya şifre ❌")
+            st.error("Hatalı kullanıcı adı veya şifre ❌")
+
+with tab_register:
+    new_user = st.text_input("Yeni Kullanıcı Adı")
+    new_pass = st.text_input("Yeni Şifre", type="password")
+    if st.button("Kayıt Ol"):
+        if new_user and new_pass:
+            try:
+                c.execute("INSERT INTO users (username, password, role, approved) VALUES (?, ?, ?, ?)",
+                          (new_user, new_pass, "Personel", 0))
+                conn.commit()
+                st.success("Kullanıcı oluşturuldu ✅ (Admin onayı bekleniyor)")
+            except sqlite3.IntegrityError:
+                st.error("Bu kullanıcı adı zaten mevcut ❌")
+        else:
+            st.error("Kullanıcı adı ve şifre boş olamaz ❌")
 
 if st.session_state.get("login_time"):
     elapsed = datetime.now(tz) - st.session_state.login_time
     if elapsed > timedelta(minutes=15):
-        st.sidebar.warning("⏰ 15 dakika oldu, lütfen kontrol edin!")
+        st.warning("⏰ 15 dakika oldu, lütfen kontrol edin!")
 
-# Personel Paneli
+# --- Personel Paneli ---
 if st.session_state.get("role") == "Personel":
-    st.title("👤 Personel Paneli")
+    st.markdown("## 👤 Personel Paneli")
     tab1, tab2, tab3 = st.tabs(["Durum Güncelle", "Şu An Dışarıda Olanlar", "Profilim"])
 
     with tab1:
@@ -94,7 +99,6 @@ if st.session_state.get("role") == "Personel":
                     WHERE username=? AND durum='Dışarıda'
                     ORDER BY cikis DESC LIMIT 1
                 """, (st.session_state.user,)).fetchone()
-
                 if last_exit:
                     c.execute("""
                         UPDATE logs
@@ -116,12 +120,7 @@ if st.session_state.get("role") == "Personel":
 
     with tab2:
         st_autorefresh(interval=10000, key="refresh")
-        disaridaki = pd.read_sql("""
-            SELECT username, cikis
-            FROM logs
-            WHERE durum='Dışarıda'
-            ORDER BY cikis DESC
-        """, conn)
+        disaridaki = pd.read_sql("SELECT username, cikis FROM logs WHERE durum='Dışarıda' ORDER BY cikis DESC", conn)
         if not disaridaki.empty:
             for _, row in disaridaki.iterrows():
                 st.info(f"🚶 {row['username']} şu anda dışarıda (çıkış: {row['cikis']})")
@@ -135,12 +134,17 @@ if st.session_state.get("role") == "Personel":
         else:
             st.info("Henüz log kaydınız yok.")
 
-# Yönetici Paneli
+        # Bildirim kontrol
+        notif = pd.read_sql("SELECT * FROM notifications WHERE username=?", conn, params=(st.session_state.user,))
+        if not notif.empty:
+            st.warning(f"📢 Yönetici çağırıyor: {notif.iloc[-1]['message']}")
+
+# --- Yönetici Paneli ---
 elif st.session_state.get("role") == "Yönetici":
-    st.title("👨‍💼 Yönetici Paneli")
+    st.markdown("## 👨‍💼 Yönetici Paneli")
     df = pd.read_sql("SELECT * FROM logs", conn)
 
-    tab1, tab2, tab3 = st.tabs(["Dashboard", "Loglar", "Kullanıcı Onayı"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Dashboard", "Loglar", "Kullanıcı Onayı", "Bildirim Gönder"])
 
     with tab1:
         toplam = df["username"].nunique()
@@ -181,7 +185,4 @@ elif st.session_state.get("role") == "Yönetici":
 
         df_users = pd.read_sql("SELECT * FROM users", conn)
         st.subheader("👥 Kullanıcı Tablosu (Debug)")
-        st.dataframe(df_users, use_container_width=True)
-
-st.sidebar.markdown("---")
-st.sidebar.info("📱 Mobil ve masaüstü uyumlu modern arayüz")
+        st.dataframe(df_users, use_container_width
