@@ -36,17 +36,18 @@ c.execute("INSERT OR IGNORE INTO users (username, password, role, approved) VALU
           ("admin", "1234", "Yönetici", 1))
 conn.commit()
 
-# --- Kurumsal Tema ve Logo ---
+# --- Kurumsal Tema ve Başlık ---
 st.set_page_config(page_title="Personel Yönetim Sistemi", page_icon="🏢", layout="wide")
 st.markdown("<h1 style='text-align:center; color:#0A3D62;'>🏢 Personel Yönetim Sistemi</h1>", unsafe_allow_html=True)
 st.markdown("---")
 
-# --- Giriş/Kayıt Paneli ---
+# --- Session State ---
 if "role" not in st.session_state:
     st.session_state.role = None
 if "login_time" not in st.session_state:
     st.session_state.login_time = None
 
+# --- Giriş/Kayıt Paneli ---
 tab_login, tab_register = st.tabs(["🔑 Giriş Yap", "📝 Kayıt Ol"])
 
 with tab_login:
@@ -184,5 +185,4 @@ elif st.session_state.get("role") == "Yönetici":
             st.success("Onay bekleyen kullanıcı yok.")
 
         df_users = pd.read_sql("SELECT * FROM users", conn)
-        st.subheader("👥 Kullanıcı Tablosu (Debug)")
-        st.dataframe(df_users, use_container_width
+       
